@@ -13,6 +13,22 @@
         .input { background: #1e293b; border: 1px solid #475569; color: #e2e8f0; }
         .input:focus { border-color: #0ea5e9; outline: none; }
         select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+        .tab-btn { padding: 0.5rem 1.5rem; border-radius: 0.5rem 0.5rem 0 0; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+        .tab-btn.active { background: #0ea5e9; color: white; }
+        .tab-btn:not(.active) { background: #1e293b; color: #94a3b8; border: 1px solid #334155; border-bottom: none; }
+        .tab-btn:not(.active):hover { color: #e2e8f0; }
+        .deal-row:hover { background: #1e3a5f; }
+        .source-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; }
+        .source-sunwing { background: #f97316; color: white; }
+        .source-air_transat { background: #3b82f6; color: white; }
+        .source-westjet { background: #06b6d4; color: white; }
+        .source-expedia { background: #facc15; color: #1e293b; }
+        .source-booking { background: #ef4444; color: white; }
+        .stars { color: #facc15; }
+        .nights-badge { font-size: 0.75rem; padding: 2px 10px; border-radius: 9999px; background: #334155; color: #94a3b8; }
+        .nights-badge.active { background: #0ea5e9; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body class="min-h-screen">
@@ -20,69 +36,238 @@
         <div class="flex items-center justify-between mb-8">
             <div>
                 <h1 class="text-3xl font-bold text-sky-400">Caribbean Deal Finder</h1>
-                <p class="text-slate-400 mt-1">Best all-inclusive deals from Montreal</p>
+                <p class="text-slate-400 mt-1">Vacation packages &amp; hotels from Montreal</p>
             </div>
             <div class="text-right text-sm text-slate-500">
-                <div>{{ deal_count }} deals in database</div>
+                <div>{{ deal_count }} deals ({{ package_count }} packages, {{ hotel_count }} hotels)</div>
                 {% if last_refresh %}
                 <div>Last refresh: {{ last_refresh }}</div>
                 {% endif %}
             </div>
         </div>
 
-        <form action="/search" method="get" class="card rounded-xl p-6 mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Destination</label>
-                    <select name="destination" class="input w-full rounded-lg px-3 py-2">
-                        <option value="">All Destinations</option>
-                        {% for code, name in destinations.items() %}
-                        <option value="{{ code }}">{{ name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Departure Airport</label>
-                    <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
-                        <option value="">All Airports</option>
-                        {% for code, name in airports.items() %}
-                        <option value="{{ code }}">{{ name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Max Price (per person)</label>
-                    <input type="number" name="max_price" placeholder="e.g. 1500" class="input w-full rounded-lg px-3 py-2">
-                </div>
-                <div>
-                    <label class="block text-sm text-slate-400 mb-1">Min Hotel Rating</label>
-                    <select name="min_stars" class="input w-full rounded-lg px-3 py-2">
-                        <option value="">Any</option>
-                        {% for s in star_ratings %}
-                        <option value="{{ s }}">{{ s }}+ Stars</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-            <div class="flex items-center gap-6 mb-4">
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="all_inclusive" value="true" checked class="w-4 h-4 accent-sky-500">
-                    <span class="text-sm">All-Inclusive Only</span>
-                </label>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" name="direct_only" value="true" class="w-4 h-4 accent-sky-500">
-                    <span class="text-sm">Direct Flights Only</span>
-                </label>
-            </div>
-            <div class="flex gap-3">
-                <button type="submit" class="btn-primary text-white font-semibold px-6 py-2 rounded-lg">Search Deals</button>
-                <a href="/scrape" class="bg-slate-700 text-slate-300 font-semibold px-6 py-2 rounded-lg hover:bg-slate-600">Refresh Data</a>
-            </div>
-        </form>
+        <div class="mb-6 flex gap-2">
+            <button onclick="switchTab('packages')" id="tab-packages" class="tab-btn">
+                ✈️ All-Inclusive Packages <span class="ml-1 text-xs opacity-70">({{ package_count }})</span>
+            </button>
+            <button onclick="switchTab('hotels')" id="tab-hotels" class="tab-btn">
+                🏨 Hotels Only <span class="ml-1 text-xs opacity-70">({{ hotel_count }})</span>
+            </button>
+            <div class="flex-1"></div>
+            <a href="/scrape" class="bg-slate-700 text-slate-300 font-semibold px-4 py-2 rounded-lg hover:bg-slate-600 text-sm self-start">Refresh Data</a>
+        </div>
 
-        <div id="deals-section">
-            <p class="text-slate-500 text-center py-12">Use the search form above to find deals</p>
+        <div id="tab-content-packages" class="tab-content active">
+            <form action="/search" method="get">
+                <input type="hidden" name="deal_type" value="package">
+                <input type="hidden" name="all_inclusive" value="true">
+                <div class="card rounded-xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-sky-300">Flight + Hotel Packages</h2>
+                        <div class="flex gap-2">
+                            {% for n in package_nights_options %}
+                            <label class="nights-badge cursor-pointer">
+                                <input type="checkbox" name="nights" value="{{ n }}" class="hidden"> {{ n }} nights
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Destination</label>
+                            <select name="destination" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">All Destinations</option>
+                                {% for code, name in destinations.items() %}
+                                <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Airport</label>
+                            <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">All</option>
+                                {% for code, name in airports.items() %}
+                                <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Max Price (per person)</label>
+                            <input type="number" name="max_price" placeholder="e.g. 1500" class="input w-full rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Min Stars</label>
+                            <select name="min_stars" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">Any</option>
+                                {% for s in star_ratings %}
+                                <option value="{{ s }}">{{ s }}+ Stars</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary text-white font-semibold px-6 py-2 rounded-lg">Search Packages</button>
+                </div>
+            </form>
+
+            {% if package_deals %}
+            <div class="card rounded-xl overflow-hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-sm text-slate-400 border-b border-slate-700">
+                            <th class="px-4 py-3">Source</th>
+                            <th class="px-4 py-3">Hotel</th>
+                            <th class="px-4 py-3">Stars</th>
+                            <th class="px-4 py-3">Destination</th>
+                            <th class="px-4 py-3">Nights</th>
+                            <th class="px-4 py-3">Price/Person</th>
+                            <th class="px-4 py-3">Total</th>
+                            <th class="px-4 py-3">Book</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deal in package_deals %}
+                        <tr class="deal-row border-b border-slate-800 transition-colors">
+                            <td class="px-4 py-3"><span class="source-badge source-{{ deal.source }}">{{ deal.source }}</span></td>
+                            <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
+                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
+                            <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
+                            <td class="px-4 py-3 text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</td>
+                            <td class="px-4 py-3 text-slate-300">${{ "%.0f"|format(deal.price_total) }} CAD</td>
+                            <td class="px-4 py-3">
+                                {% if deal.url %}
+                                <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">View &rarr;</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-slate-500">
+                <p class="text-lg">No package deals found yet.</p>
+                <p class="text-sm mt-2">Click "Refresh Data" to scrape Sunwing, Air Transat, and WestJet.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div id="tab-content-hotels" class="tab-content">
+            <form action="/search" method="get">
+                <input type="hidden" name="deal_type" value="hotel">
+                <div class="card rounded-xl p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-sky-300">Hotel Stays</h2>
+                        <div class="flex gap-2 items-center text-sm text-slate-400">
+                            <span>Any number of nights</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Destination</label>
+                            <select name="destination" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">All Destinations</option>
+                                {% for code, name in destinations.items() %}
+                                <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Airport</label>
+                            <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">All</option>
+                                {% for code, name in airports.items() %}
+                                <option value="{{ code }}">{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Max Price (per night)</label>
+                            <input type="number" name="max_price" placeholder="e.g. 300" class="input w-full rounded-lg px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Min Stars</label>
+                            <select name="min_stars" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">Any</option>
+                                {% for s in star_ratings %}
+                                <option value="{{ s }}">{{ s }}+ Stars</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">All-Inclusive</label>
+                            <select name="all_inclusive" class="input w-full rounded-lg px-3 py-2">
+                                <option value="">Any</option>
+                                <option value="true">All-Inclusive Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary text-white font-semibold px-6 py-2 rounded-lg">Search Hotels</button>
+                </div>
+            </form>
+
+            {% if hotel_deals %}
+            <div class="card rounded-xl overflow-hidden">
+                <table class="w-full">
+                    <thead>
+                        <tr class="text-left text-sm text-slate-400 border-b border-slate-700">
+                            <th class="px-4 py-3">Source</th>
+                            <th class="px-4 py-3">Hotel</th>
+                            <th class="px-4 py-3">Stars</th>
+                            <th class="px-4 py-3">Destination</th>
+                            <th class="px-4 py-3">Nights</th>
+                            <th class="px-4 py-3">Price/Night</th>
+                            <th class="px-4 py-3">Total</th>
+                            <th class="px-4 py-3">Book</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deal in hotel_deals %}
+                        <tr class="deal-row border-b border-slate-800 transition-colors">
+                            <td class="px-4 py-3"><span class="source-badge source-{{ deal.source }}">{{ deal.source }}</span></td>
+                            <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
+                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
+                            <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
+                            <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
+                            <td class="px-4 py-3 text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</td>
+                            <td class="px-4 py-3 text-slate-300">${{ "%.0f"|format(deal.price_total) }} CAD</td>
+                            <td class="px-4 py-3">
+                                {% if deal.url %}
+                                <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">View &rarr;</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12 text-slate-500">
+                <p class="text-lg">No hotel deals found yet.</p>
+                <p class="text-sm mt-2">Click "Refresh Data" to scrape Booking.com and Expedia.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            document.getElementById('tab-content-' + tab).classList.add('active');
+        }
+
+        document.querySelectorAll('.nights-badge').forEach(badge => {
+            badge.addEventListener('click', () => {
+                const cb = badge.querySelector('input[type="checkbox"]');
+                badge.classList.toggle('active', cb.checked);
+            });
+        });
+
+        {% if not package_deals %}
+        switchTab('hotels');
+        {% endif %}
+    </script>
 </body>
 </html>

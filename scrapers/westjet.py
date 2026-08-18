@@ -63,6 +63,7 @@ class WestJetScraper(BaseScraper):
 
                         deal = self._make_deal(
                             destination=destination or "CARIBBEAN",
+                            deal_type="package",
                             hotel_name=title.strip(),
                             hotel_stars=stars,
                             price_per_person=price,

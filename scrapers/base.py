@@ -36,6 +36,7 @@ class BaseScraper(ABC):
         defaults = {
             "source": self.name,
             "destination": "",
+            "deal_type": "hotel",
             "hotel_name": "",
             "hotel_stars": 0,
             "departure_date": "",

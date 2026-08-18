@@ -4,12 +4,17 @@ from scrapers.westjet import WestJetScraper
 from scrapers.expedia import ExpediaScraper
 from scrapers.booking import BookingScraper
 
-ALL_SCRAPERS = [
+PACKAGE_SCRAPERS = [
     SunwingScraper(),
     AirTransatScraper(),
     WestJetScraper(),
-    ExpediaScraper(),
-    BookingScraper(),
 ]
 
-__all__ = ["ALL_SCRAPERS"]
+HOTEL_SCRAPERS = [
+    BookingScraper(),
+    ExpediaScraper(),
+]
+
+ALL_SCRAPERS = PACKAGE_SCRAPERS + HOTEL_SCRAPERS
+
+__all__ = ["ALL_SCRAPERS", "PACKAGE_SCRAPERS", "HOTEL_SCRAPERS"]

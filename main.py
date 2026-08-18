@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, Request, Form, Query
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,8 +14,15 @@ from config import (
     REFRESH_INTERVAL_HOURS,
     STAR_RATINGS,
 )
-from models import get_deal_count, get_last_refresh, init_db, search_deals, upsert_deal
-from scrapers import ALL_SCRAPERS
+from models import (
+    get_deal_count,
+    get_deal_count_by_type,
+    get_last_refresh,
+    init_db,
+    search_deals,
+    upsert_deal,
+)
+from scrapers import ALL_SCRAPERS, PACKAGE_SCRAPERS, HOTEL_SCRAPERS
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
 log = logging.getLogger("main")
@@ -23,24 +30,35 @@ log = logging.getLogger("main")
 scheduler = AsyncIOScheduler()
 _scrape_lock = asyncio.Lock()
 
+PACKAGE_NIGHTS_OPTIONS = [7, 10, 14]
+
 
 async def run_all_scrapers():
     if _scrape_lock.locked():
         log.info("Scrape already in progress, skipping")
         return
     async with _scrape_lock:
-        log.info("Starting scheduled scrape of %d sources", len(ALL_SCRAPERS))
-        for scraper in ALL_SCRAPERS:
+        all_scrapers = ALL_SCRAPERS
+        log.info("Starting scheduled scrape of %d sources", len(all_scrapers))
+
+        for scraper in PACKAGE_SCRAPERS:
             try:
-                deals = await scraper.search(
-                    all_inclusive=True,
-                    direct_only=False,
-                )
+                deals = await scraper.search(all_inclusive=True, direct_only=False)
                 for deal in deals:
                     await upsert_deal(deal)
-                log.info("%s: saved %d deals", scraper.name, len(deals))
+                log.info("%s (package): saved %d deals", scraper.name, len(deals))
             except Exception as e:
                 log.error("Scraper %s failed: %s", scraper.name, e)
+
+        for scraper in HOTEL_SCRAPERS:
+            try:
+                deals = await scraper.search(all_inclusive=False, direct_only=False)
+                for deal in deals:
+                    await upsert_deal(deal)
+                log.info("%s (hotel): saved %d deals", scraper.name, len(deals))
+            except Exception as e:
+                log.error("Scraper %s failed: %s", scraper.name, e)
+
         count = await get_deal_count()
         log.info("Scrape complete. Total deals in DB: %d", count)
 
@@ -64,14 +82,23 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    count = await get_deal_count()
+    counts = await get_deal_count_by_type()
     last = await get_last_refresh()
+
+    package_deals = await search_deals(deal_type="package")
+    hotel_deals = await search_deals(deal_type="hotel")
+
     return templates.TemplateResponse(request, "index.html", {
         "airports": DEPARTURE_AIRPORTS,
         "destinations": DESTINATIONS,
         "star_ratings": STAR_RATINGS,
-        "deal_count": count,
+        "package_count": counts.get("package", 0),
+        "hotel_count": counts.get("hotel", 0),
+        "deal_count": sum(counts.values()),
         "last_refresh": last,
+        "package_deals": package_deals[:20],
+        "hotel_deals": hotel_deals[:20],
+        "package_nights_options": PACKAGE_NIGHTS_OPTIONS,
     })
 
 
@@ -85,11 +112,14 @@ async def search(
     all_inclusive: str = Query(None),
     direct_only: str = Query(None),
     source: str = Query(None),
+    deal_type: str = Query(None),
+    nights: str = Query(None),
 ):
     max_price_f = float(max_price) if max_price else None
     min_stars_i = int(min_stars) if min_stars else None
     ai = all_inclusive == "true" if all_inclusive else None
     direct = direct_only == "true" if direct_only else None
+    nights_list = [int(n) for n in nights.split(",") if n.strip()] if nights else None
 
     deals = await search_deals(
         destination=destination or None,
@@ -99,12 +129,16 @@ async def search(
         direct_only=direct,
         departure_airport=departure_airport or None,
         source=source or None,
+        deal_type=deal_type or None,
+        nights=nights_list,
     )
     return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
         "airports": DEPARTURE_AIRPORTS,
         "destinations": DESTINATIONS,
         "star_ratings": STAR_RATINGS,
+        "deal_type": deal_type,
+        "package_nights_options": PACKAGE_NIGHTS_OPTIONS,
         "filters": {
             "destination": destination,
             "departure_airport": departure_airport,
@@ -113,6 +147,8 @@ async def search(
             "all_inclusive": all_inclusive,
             "direct_only": direct_only,
             "source": source,
+            "deal_type": deal_type,
+            "nights": nights,
         },
     })
 
@@ -129,12 +165,17 @@ async def api_deals(
     max_price: float = Query(None),
     min_stars: int = Query(None),
     all_inclusive: bool = Query(None),
+    deal_type: str = Query(None),
+    nights: str = Query(None),
 ):
+    nights_list = [int(n) for n in nights.split(",") if n.strip()] if nights else None
     return await search_deals(
         destination=destination,
         min_stars=min_stars,
         max_price=max_price,
         all_inclusive=all_inclusive,
+        deal_type=deal_type,
+        nights=nights_list,
     )
 
 

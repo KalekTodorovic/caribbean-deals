@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS deals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL,
     destination TEXT NOT NULL,
+    deal_type TEXT DEFAULT 'hotel',
     hotel_name TEXT,
     hotel_stars INTEGER,
     departure_date TEXT,
@@ -29,6 +30,8 @@ CREATE INDEX IF NOT EXISTS idx_deals_dest ON deals(destination);
 CREATE INDEX IF NOT EXISTS idx_deals_price ON deals(price_per_person);
 CREATE INDEX IF NOT EXISTS idx_deals_source ON deals(source);
 CREATE INDEX IF NOT EXISTS idx_deals_fetched ON deals(fetched_at);
+CREATE INDEX IF NOT EXISTS idx_deals_type ON deals(deal_type);
+CREATE INDEX IF NOT EXISTS idx_deals_nights ON deals(nights);
 """
 
 
@@ -49,15 +52,16 @@ async def init_db():
 async def upsert_deal(deal: dict):
     db = await get_db()
     await db.execute(
-        """INSERT INTO deals (source, destination, hotel_name, hotel_stars,
+        """INSERT INTO deals (source, destination, deal_type, hotel_name, hotel_stars,
             departure_date, return_date, nights, price_per_person, price_total,
             currency, all_inclusive, direct_flight, departure_airport, url, source_trip_id)
-        VALUES (:source, :destination, :hotel_name, :hotel_stars,
+        VALUES (:source, :destination, :deal_type, :hotel_name, :hotel_stars,
             :departure_date, :return_date, :nights, :price_per_person, :price_total,
             :currency, :all_inclusive, :direct_flight, :departure_airport, :url, :source_trip_id)
         ON CONFLICT(source, source_trip_id) DO UPDATE SET
             price_per_person=excluded.price_per_person,
             price_total=excluded.price_total,
+            deal_type=excluded.deal_type,
             fetched_at=datetime('now')
         """,
         deal,
@@ -74,6 +78,8 @@ async def search_deals(
     direct_only: bool = None,
     departure_airport: str = None,
     source: str = None,
+    deal_type: str = None,
+    nights: list[int] = None,
 ) -> list[dict]:
     db = await get_db()
     query = "SELECT * FROM deals WHERE 1=1"
@@ -98,6 +104,13 @@ async def search_deals(
     if source:
         query += " AND source = ?"
         params.append(source)
+    if deal_type:
+        query += " AND deal_type = ?"
+        params.append(deal_type)
+    if nights:
+        placeholders = ",".join("?" for _ in nights)
+        query += f" AND nights IN ({placeholders})"
+        params.extend(nights)
 
     query += " ORDER BY price_per_person ASC"
     cursor = await db.execute(query, params)
@@ -112,6 +125,16 @@ async def get_deal_count() -> int:
     row = await cursor.fetchone()
     await db.close()
     return row[0]
+
+
+async def get_deal_count_by_type() -> dict:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT deal_type, COUNT(*) as cnt FROM deals GROUP BY deal_type"
+    )
+    rows = await cursor.fetchall()
+    await db.close()
+    return {row["deal_type"]: row["cnt"] for row in rows}
 
 
 async def get_last_refresh() -> str | None:
