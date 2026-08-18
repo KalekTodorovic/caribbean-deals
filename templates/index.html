@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caribbean Deal Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .btn-primary { background: #0ea5e9; }
+        .btn-primary:hover { background: #0284c7; }
+        .input { background: #1e293b; border: 1px solid #475569; color: #e2e8f0; }
+        .input:focus { border-color: #0ea5e9; outline: none; }
+        select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-sky-400">Caribbean Deal Finder</h1>
+                <p class="text-slate-400 mt-1">Best all-inclusive deals from Montreal</p>
+            </div>
+            <div class="text-right text-sm text-slate-500">
+                <div>{{ deal_count }} deals in database</div>
+                {% if last_refresh %}
+                <div>Last refresh: {{ last_refresh }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <form action="/search" method="get" class="card rounded-xl p-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Destination</label>
+                    <select name="destination" class="input w-full rounded-lg px-3 py-2">
+                        <option value="">All Destinations</option>
+                        {% for code, name in destinations.items() %}
+                        <option value="{{ code }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Departure Airport</label>
+                    <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
+                        <option value="">All Airports</option>
+                        {% for code, name in airports.items() %}
+                        <option value="{{ code }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Max Price (per person)</label>
+                    <input type="number" name="max_price" placeholder="e.g. 1500" class="input w-full rounded-lg px-3 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Min Hotel Rating</label>
+                    <select name="min_stars" class="input w-full rounded-lg px-3 py-2">
+                        <option value="">Any</option>
+                        {% for s in star_ratings %}
+                        <option value="{{ s }}">{{ s }}+ Stars</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="flex items-center gap-6 mb-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="all_inclusive" value="true" checked class="w-4 h-4 accent-sky-500">
+                    <span class="text-sm">All-Inclusive Only</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="direct_only" value="true" class="w-4 h-4 accent-sky-500">
+                    <span class="text-sm">Direct Flights Only</span>
+                </label>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" class="btn-primary text-white font-semibold px-6 py-2 rounded-lg">Search Deals</button>
+                <a href="/scrape" class="bg-slate-700 text-slate-300 font-semibold px-6 py-2 rounded-lg hover:bg-slate-600">Refresh Data</a>
+            </div>
+        </form>
+
+        <div id="deals-section">
+            <p class="text-slate-500 text-center py-12">Use the search form above to find deals</p>
+        </div>
+    </div>
+</body>
+</html>

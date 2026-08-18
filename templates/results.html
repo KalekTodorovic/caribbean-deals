@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results - Caribbean Deal Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .btn-primary { background: #0ea5e9; }
+        .btn-primary:hover { background: #0284c7; }
+        .input { background: #1e293b; border: 1px solid #475569; color: #e2e8f0; }
+        .input:focus { border-color: #0ea5e9; outline: none; }
+        select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+        .deal-row:hover { background: #1e3a5f; }
+        .source-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; }
+        .source-sunwing { background: #f97316; color: white; }
+        .source-air_transat { background: #3b82f6; color: white; }
+        .source-westjet { background: #06b6d4; color: white; }
+        .source-expedia { background: #facc15; color: #1e293b; }
+        .source-booking { background: #ef4444; color: white; }
+        .stars { color: #facc15; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <a href="/" class="text-sky-400 hover:underline text-sm">&larr; Back to Search</a>
+                <h1 class="text-2xl font-bold text-sky-400 mt-2">{{ deals|length }} Deals Found</h1>
+            </div>
+            <a href="/scrape" class="bg-slate-700 text-slate-300 font-semibold px-4 py-2 rounded-lg hover:bg-slate-600 text-sm">Refresh Data</a>
+        </div>
+
+        <form action="/search" method="get" class="card rounded-xl p-4 mb-6">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Destination</label>
+                    <select name="destination" class="input w-full rounded-lg px-3 py-1.5 text-sm">
+                        <option value="">All</option>
+                        {% for code, name in destinations.items() %}
+                        <option value="{{ code }}" {% if filters.destination == code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Airport</label>
+                    <select name="departure_airport" class="input w-full rounded-lg px-3 py-1.5 text-sm">
+                        <option value="">All</option>
+                        {% for code, name in airports.items() %}
+                        <option value="{{ code }}" {% if filters.departure_airport == code %}selected{% endif %}>{{ code }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Max Price</label>
+                    <input type="number" name="max_price" value="{{ filters.max_price or '' }}" placeholder="Any" class="input w-full rounded-lg px-3 py-1.5 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Stars</label>
+                    <select name="min_stars" class="input w-full rounded-lg px-3 py-1.5 text-sm">
+                        <option value="">Any</option>
+                        {% for s in star_ratings %}
+                        <option value="{{ s }}" {% if filters.min_stars == s %}selected{% endif %}>{{ s }}+</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex items-center gap-3 pt-4">
+                    <label class="flex items-center gap-1 cursor-pointer text-sm">
+                        <input type="checkbox" name="all_inclusive" value="true" {% if filters.all_inclusive %}checked{% endif %} class="w-3 h-3 accent-sky-500">
+                        All-Inclusive
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer text-sm">
+                        <input type="checkbox" name="direct_only" value="true" {% if filters.direct_only %}checked{% endif %} class="w-3 h-3 accent-sky-500">
+                        Direct
+                    </label>
+                </div>
+                <div>
+                    <button type="submit" class="btn-primary text-white font-semibold px-4 py-1.5 rounded-lg text-sm w-full">Filter</button>
+                </div>
+            </div>
+        </form>
+
+        {% if deals %}
+        <div class="card rounded-xl overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-left text-sm text-slate-400 border-b border-slate-700">
+                        <th class="px-4 py-3">Source</th>
+                        <th class="px-4 py-3">Hotel</th>
+                        <th class="px-4 py-3">Stars</th>
+                        <th class="px-4 py-3">Destination</th>
+                        <th class="px-4 py-3">Price/Person</th>
+                        <th class="px-4 py-3">Total</th>
+                        <th class="px-4 py-3">Book</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for deal in deals %}
+                    <tr class="deal-row border-b border-slate-800 transition-colors">
+                        <td class="px-4 py-3">
+                            <span class="source-badge source-{{ deal.source }}">{{ deal.source }}</span>
+                        </td>
+                        <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
+                        <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
+                        <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
+                        <td class="px-4 py-3 text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</td>
+                        <td class="px-4 py-3 text-slate-300">${{ "%.0f"|format(deal.price_total) }} CAD</td>
+                        <td class="px-4 py-3">
+                            {% if deal.url %}
+                            <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">View &rarr;</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-slate-500">
+            <p class="text-lg">No deals found matching your filters.</p>
+            <p class="text-sm mt-2">Try broadening your search or click "Refresh Data" to scrape new deals.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
