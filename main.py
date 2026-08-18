@@ -66,8 +66,7 @@ templates = Jinja2Templates(directory="templates")
 async def index(request: Request):
     count = await get_deal_count()
     last = await get_last_refresh()
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "airports": DEPARTURE_AIRPORTS,
         "destinations": DESTINATIONS,
         "star_ratings": STAR_RATINGS,
@@ -96,8 +95,7 @@ async def search(
         departure_airport=departure_airport,
         source=source,
     )
-    return templates.TemplateResponse("results.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
         "airports": DEPARTURE_AIRPORTS,
         "destinations": DESTINATIONS,
