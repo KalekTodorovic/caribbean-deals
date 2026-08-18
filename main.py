@@ -153,7 +153,7 @@ async def search(
     })
 
 
-@app.post("/scrape")
+@app.api_route("/scrape", methods=["GET", "POST"])
 async def trigger_scrape():
     asyncio.create_task(run_all_scrapers())
     return RedirectResponse("/", status_code=303)
