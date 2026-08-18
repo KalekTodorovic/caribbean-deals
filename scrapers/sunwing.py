@@ -1,28 +1,13 @@
 from scrapers.base import BaseScraper
 import re
+from datetime import datetime, timedelta
 
 DEST_MAP = {
-    "CU": "cuba",
-    "DO": "dominican-republic",
-    "MX": "mexico",
-    "JM": "jamaica",
-    "HT": "haiti",
-    "BB": "barbados",
-    "AG": "antigua",
-    "LC": "saint-lucia",
-    "VC": "st-vincent",
-    "GD": "grenada",
-    "TT": "trinidad",
-    "CR": "costa-rica",
-    "PA": "panama",
-    "CO": "colombia",
-    "PR": "puerto-rico",
-}
-
-LENGTH_MAP = {
-    7: "7",
-    10: "10",
-    14: "14",
+    "CU": "cuba", "DO": "dominican-republic", "MX": "mexico",
+    "JM": "jamaica", "HT": "haiti", "BB": "barbados",
+    "AG": "antigua", "LC": "saint-lucia", "VC": "st-vincent",
+    "GD": "grenada", "TT": "trinidad", "CR": "costa-rica",
+    "PA": "panama", "CO": "colombia", "PR": "puerto-rico",
 }
 
 
@@ -51,11 +36,12 @@ class SunwingScraper(BaseScraper):
             return []
 
         deals = []
-        dest_slug = DEST_MAP.get(destination, "") if destination else ""
-        airport_map = {"YUL": "YMQ", "YMX": "YMQ"}
-        airport_code = airport_map.get(departure_airport, "YMQ")
 
-        lengths_to_try = [7, 10, 14]
+        pages_to_scrape = [
+            "/en/promotion/packages/all-inclusive-vacation-packages",
+            "/en/promotion/packages/last-minute-vacations",
+            "/en/best-vacations",
+        ]
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -65,56 +51,47 @@ class SunwingScraper(BaseScraper):
             )
             page = await context.new_page()
 
-            for nights in lengths_to_try:
+            for page_path in pages_to_scrape:
                 try:
-                    dest_part = f"/{dest_slug}" if dest_slug else ""
-                    url = (
-                        f"{self.base_url}/en/vacations{dest_part}"
-                        f"?departure={airport_code}"
-                        f"&duration={nights}"
-                    )
+                    url = self.base_url + page_path
                     self.log.info("Sunwing URL: %s", url)
                     await page.goto(url, timeout=30000, wait_until="domcontentloaded")
                     await page.wait_for_timeout(8000)
+                    for _ in range(3):
+                        await page.evaluate("window.scrollBy(0, 800)")
+                        await page.wait_for_timeout(2000)
 
                     cards = await page.query_selector_all(
-                        '[data-testid="vacation-card"], '
-                        '[class*="VacationCard"], '
-                        '[class*="vacation-card"], '
-                        '[class*="product-card"], '
-                        '[class*="ProductCard"], '
-                        '.search-result-card'
+                        '[class*="CardType-module--card"]'
                     )
-                    self.log.info("Sunwing: found %d cards for %d nights", len(cards), nights)
+                    self.log.info("Sunwing %s: found %d cards", page_path, len(cards))
 
                     for i, card in enumerate(cards[:30]):
                         try:
-                            title = ""
-                            for sel in ['[data-testid="hotel-name"]', 'h3', 'h4', '[class*="hotelName"]', '[class*="HotelName"]']:
-                                el = await card.query_selector(sel)
-                                if el:
-                                    title = (await el.inner_text()).strip()
-                                    if title:
-                                        break
-                            if not title:
-                                title = f"Sunwing Hotel {i+1}"
+                            text = await card.inner_text()
+                            lines = [l.strip() for l in text.split("\n") if l.strip()]
+                            if len(lines) < 4:
+                                continue
+
+                            hotel_name = lines[1] if len(lines) > 1 else f"Sunwing Hotel {i+1}"
 
                             price = 0
-                            for sel in ['[data-testid="price"]', '[class*="Price"]', '[class*="price"]', '[class*="cost"]', '[class*="amount"]']:
-                                el = await card.query_selector(sel)
-                                if el:
-                                    txt = await el.inner_text()
-                                    price = self._parse_price(txt)
-                                    if price > 0:
-                                        break
+                            nights = 7
+                            for line in lines:
+                                m = re.match(r'^\$(\d[\d,]*)$', line)
+                                if m:
+                                    val = float(m.group(1).replace(',', ''))
+                                    if val > price:
+                                        price = val
+                                m2 = re.match(r'^(\d+)\s*day', line)
+                                if m2:
+                                    nights = int(m2.group(1))
 
-                            stars = 4
-                            for sel in ['[class*="star"]', '[class*="Star"]', '[class*="rating"]', '[class*="Rating"]']:
-                                el = await card.query_selector(sel)
-                                if el:
-                                    txt = await el.get_attribute("aria-label") or await el.inner_text()
-                                    stars = self._parse_stars(txt or "4")
-                                    break
+                            if price <= 0:
+                                continue
+
+                            dest_line = lines[0] if lines else ""
+                            dest_code = self._guess_dest(dest_line, destination)
 
                             link = ""
                             el = await card.query_selector("a[href]")
@@ -123,30 +100,35 @@ class SunwingScraper(BaseScraper):
                                 if link and not link.startswith("http"):
                                     link = self.base_url + link
 
-                            dest_label = destination or "CARIBBEAN"
+                            stars = 4
+                            for line in lines:
+                                if "star" in line.lower():
+                                    nums = re.findall(r'\d', line)
+                                    if nums and 1 <= int(nums[0]) <= 5:
+                                        stars = int(nums[0])
+                                        break
 
                             deal = self._make_deal(
-                                destination=dest_label,
+                                destination=dest_code,
                                 deal_type="package",
-                                hotel_name=title,
+                                hotel_name=hotel_name,
                                 hotel_stars=stars,
                                 nights=nights,
                                 price_per_person=price,
                                 price_total=price * 2,
                                 all_inclusive=1 if all_inclusive else 0,
-                                direct_flight=1 if direct_only else 0,
+                                direct_flight=0,
                                 departure_airport=departure_airport,
                                 url=link,
-                                source_trip_id=f"sw_{dest_slug or 'all'}_{nights}n_{i}",
+                                source_trip_id=f"sw_{dest_code}_{nights}n_{i}",
                             )
-                            if price > 0:
-                                deals.append(deal)
+                            deals.append(deal)
                         except Exception as e:
-                            self.log.debug("Sunwing card %d parse error: %s", i, e)
+                            self.log.debug("Sunwing card %d error: %s", i, e)
                             continue
 
                 except Exception as e:
-                    self.log.error("Sunwing scrape failed for %d nights: %s", nights, e)
+                    self.log.error("Sunwing scrape failed for %s: %s", page_path, e)
                     continue
 
             await browser.close()
@@ -154,19 +136,18 @@ class SunwingScraper(BaseScraper):
         self.log.info("Sunwing: %d total deals", len(deals))
         return deals
 
-    def _parse_price(self, text: str) -> float:
-        nums = re.findall(r'[\d,]+\.?\d*', text.replace(',', ''))
-        if nums:
-            val = float(nums[0])
-            if val < 10:
-                val *= 1000
-            return val
-        return 0.0
-
-    def _parse_stars(self, text: str) -> int:
-        nums = re.findall(r'\d', text)
-        if nums:
-            s = int(nums[0])
-            if 1 <= s <= 5:
-                return s
-        return 4
+    def _guess_dest(self, text: str, override: str = None) -> str:
+        if override:
+            return override
+        text_lower = text.lower()
+        mapping = {
+            "dominican": "DO", "punta cana": "DO", "cancun": "MX",
+            "mexico": "MX", "jamaica": "JM", "montego": "JM",
+            "cuba": "CU", "havana": "CU", "barbados": "BB",
+            "costa rica": "CR", "puerto": "PR", "antigua": "AG",
+            "saint lucia": "LC", "grenada": "GD",
+        }
+        for key, code in mapping.items():
+            if key in text_lower:
+                return code
+        return "CARIBBEAN"
