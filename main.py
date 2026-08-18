@@ -80,20 +80,25 @@ async def search(
     request: Request,
     destination: str = Query(None),
     departure_airport: str = Query(None),
-    max_price: float = Query(None),
-    min_stars: int = Query(None),
-    all_inclusive: bool = Query(None),
-    direct_only: bool = Query(None),
+    max_price: str = Query(None),
+    min_stars: str = Query(None),
+    all_inclusive: str = Query(None),
+    direct_only: str = Query(None),
     source: str = Query(None),
 ):
+    max_price_f = float(max_price) if max_price else None
+    min_stars_i = int(min_stars) if min_stars else None
+    ai = all_inclusive == "true" if all_inclusive else None
+    direct = direct_only == "true" if direct_only else None
+
     deals = await search_deals(
-        destination=destination,
-        min_stars=min_stars,
-        max_price=max_price,
-        all_inclusive=all_inclusive,
-        direct_only=direct_only,
-        departure_airport=departure_airport,
-        source=source,
+        destination=destination or None,
+        min_stars=min_stars_i,
+        max_price=max_price_f,
+        all_inclusive=ai,
+        direct_only=direct,
+        departure_airport=departure_airport or None,
+        source=source or None,
     )
     return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
