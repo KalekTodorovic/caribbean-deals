@@ -1,19 +1,11 @@
 from scrapers.base import BaseScraper
 import re
-from datetime import datetime, timedelta
-
-DEST_MAP = {
-    "CU": "cuba", "DO": "dominican-republic", "MX": "mexico",
-    "JM": "jamaica", "HT": "haiti", "BB": "barbados",
-    "AG": "antigua", "LC": "saint-lucia", "VC": "st-vincent",
-    "GD": "grenada", "TT": "trinidad", "CR": "costa-rica",
-    "PA": "panama", "CO": "colombia", "PR": "puerto-rico",
-}
 
 
 class SunwingScraper(BaseScraper):
     name = "sunwing"
     base_url = "https://www.sunwing.ca"
+    DEPARTURE_CODE = "YUL"
 
     async def search(
         self,
@@ -28,7 +20,7 @@ class SunwingScraper(BaseScraper):
         direct_only: bool = False,
         min_stars: int = None,
     ) -> list[dict]:
-        self.log.info("Searching Sunwing for %s", destination or "all destinations")
+        self.log.info("Searching Sunwing for %s (from %s)", destination or "all destinations", departure_airport)
         try:
             from playwright.async_api import async_playwright
         except ImportError:
@@ -99,6 +91,8 @@ class SunwingScraper(BaseScraper):
                                 link = await el.get_attribute("href") or ""
                                 if link and not link.startswith("http"):
                                     link = self.base_url + link
+                                link = link.replace("gateway_dep=YYZ", f"gateway_dep={self.DEPARTURE_CODE}")
+                                link = link.replace("gateway_dep=YYX", f"gateway_dep={self.DEPARTURE_CODE}")
 
                             stars = 4
                             for line in lines:
@@ -133,7 +127,7 @@ class SunwingScraper(BaseScraper):
 
             await browser.close()
 
-        self.log.info("Sunwing: %d total deals", len(deals))
+        self.log.info("Sunwing: %d total deals (from %s)", len(deals), self.DEPARTURE_CODE)
         return deals
 
     def _guess_dest(self, text: str, override: str = None) -> str:
