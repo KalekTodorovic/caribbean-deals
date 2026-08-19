@@ -100,7 +100,7 @@ class RedtagScraper(BaseScraper):
                             all_links = await card.query_selector_all("a[href]")
                             for a in all_links:
                                 href = await a.get_attribute("href") or ""
-                                if "/hotel-resorts/" in href:
+                                if "/deals/montreal/" in href:
                                     if not href.startswith("http"):
                                         href = self.base_url + href
                                     link = href
@@ -108,7 +108,7 @@ class RedtagScraper(BaseScraper):
                             if not link:
                                 for a in all_links:
                                     href = await a.get_attribute("href") or ""
-                                    if href and "/deals/" not in href and "transat" not in href and "aircanada" not in href:
+                                    if href and "/hotel-resorts/" in href:
                                         if not href.startswith("http"):
                                             href = self.base_url + href
                                         link = href
