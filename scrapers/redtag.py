@@ -97,11 +97,20 @@ class RedtagScraper(BaseScraper):
                                 continue
 
                             link = ""
-                            el = await card.query_selector("a[href]")
-                            if el:
-                                link = await el.get_attribute("href") or ""
-                                if link and not link.startswith("http"):
-                                    link = self.base_url + link
+                            all_links = await card.query_selector_all("a[href]")
+                            for a in all_links:
+                                href = await a.get_attribute("href") or ""
+                                if "transat.com" in href or "detailoffer" in href.lower():
+                                    link = href
+                                    break
+                            if not link:
+                                for a in all_links:
+                                    href = await a.get_attribute("href") or ""
+                                    if href and "/deals/" not in href:
+                                        if not href.startswith("http"):
+                                            href = self.base_url + href
+                                        link = href
+                                        break
 
                             stars = 4
                             stars_match = re.search(r"(\d\.\d)\s+out\s+of\s+5", card_text)
