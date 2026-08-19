@@ -3,8 +3,10 @@ from scrapers.air_transat import AirTransatScraper
 from scrapers.westjet import WestJetScraper
 from scrapers.expedia import ExpediaScraper
 from scrapers.booking import BookingScraper
+from scrapers.redtag import RedtagScraper
 
 PACKAGE_SCRAPERS = [
+    RedtagScraper(),
     SunwingScraper(),
     AirTransatScraper(),
     WestJetScraper(),

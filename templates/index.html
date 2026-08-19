@@ -19,14 +19,18 @@
         .tab-btn:not(.active):hover { color: #e2e8f0; }
         .deal-row:hover { background: #1e3a5f; }
         .source-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; }
+        .source-redtag { background: #ec4899; color: white; }
         .source-sunwing { background: #f97316; color: white; }
         .source-air_transat { background: #3b82f6; color: white; }
         .source-westjet { background: #06b6d4; color: white; }
         .source-expedia { background: #facc15; color: #1e293b; }
         .source-booking { background: #ef4444; color: white; }
         .stars { color: #facc15; }
-        .nights-badge { font-size: 0.75rem; padding: 2px 10px; border-radius: 9999px; background: #334155; color: #94a3b8; }
-        .nights-badge.active { background: #0ea5e9; color: white; }
+        .savings-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; }
+        .savings-high { background: #dc2626; color: white; }
+        .savings-mid { background: #f97316; color: white; }
+        .savings-low { background: #854d0e; color: #fde68a; }
+        .price-was { text-decoration: line-through; color: #64748b; font-size: 0.8rem; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
     </style>
@@ -64,12 +68,13 @@
                 <div class="card rounded-xl p-6 mb-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-semibold text-sky-300">Flight + Hotel Packages</h2>
-                        <div class="flex gap-2">
-                            {% for n in package_nights_options %}
-                            <label class="nights-badge cursor-pointer">
-                                <input type="checkbox" name="nights" value="{{ n }}" class="hidden"> {{ n }} nights
-                            </label>
-                            {% endfor %}
+                        <div class="flex gap-2 items-center">
+                            <label class="text-xs text-slate-400">Sort:</label>
+                            <select name="sort_by" class="input rounded-lg px-3 py-1.5 text-sm">
+                                <option value="deal_score">Best Deals First</option>
+                                <option value="price">Lowest Price</option>
+                                <option value="stars">Best Stars</option>
+                            </select>
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -87,7 +92,7 @@
                             <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
                                 <option value="">All</option>
                                 {% for code, name in airports.items() %}
-                                <option value="{{ code }}">{{ name }}</option>
+                                <option value="{{ code }}">{{ code }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -119,8 +124,7 @@
                             <th class="px-4 py-3">Stars</th>
                             <th class="px-4 py-3">Destination</th>
                             <th class="px-4 py-3">Nights</th>
-                            <th class="px-4 py-3">Price/Person</th>
-                            <th class="px-4 py-3">Total</th>
+                            <th class="px-4 py-3">Price</th>
                             <th class="px-4 py-3">Book</th>
                         </tr>
                     </thead>
@@ -132,8 +136,14 @@
                             <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
                             <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
                             <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
-                            <td class="px-4 py-3 text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</td>
-                            <td class="px-4 py-3 text-slate-300">${{ "%.0f"|format(deal.price_total) }} CAD</td>
+                            <td class="px-4 py-3">
+                                {% if deal.original_price and deal.original_price > 0 %}
+                                <span class="price-was">${{ "%.0f"|format(deal.original_price) }}</span>
+                                <span class="savings-badge {% if deal.savings_pct >= 50 %}savings-high{% elif deal.savings_pct >= 30 %}savings-mid{% else %}savings-low{% endif %}">Save {{ deal.savings_pct }}%</span>
+                                <br>
+                                {% endif %}
+                                <span class="text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</span>
+                            </td>
                             <td class="px-4 py-3">
                                 {% if deal.url %}
                                 <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">View &rarr;</a>
@@ -147,7 +157,7 @@
             {% else %}
             <div class="text-center py-12 text-slate-500">
                 <p class="text-lg">No package deals found yet.</p>
-                <p class="text-sm mt-2">Click "Refresh Data" to scrape Sunwing, Air Transat, and WestJet.</p>
+                <p class="text-sm mt-2">Click "Refresh Data" to scrape RedTag, Sunwing, Air Transat, and WestJet.</p>
             </div>
             {% endif %}
         </div>
@@ -158,9 +168,6 @@
                 <div class="card rounded-xl p-6 mb-6">
                     <div class="flex items-center justify-between mb-4">
                         <h2 class="text-lg font-semibold text-sky-300">Hotel Stays</h2>
-                        <div class="flex gap-2 items-center text-sm text-slate-400">
-                            <span>Any number of nights</span>
-                        </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
                         <div>
@@ -177,7 +184,7 @@
                             <select name="departure_airport" class="input w-full rounded-lg px-3 py-2">
                                 <option value="">All</option>
                                 {% for code, name in airports.items() %}
-                                <option value="{{ code }}">{{ name }}</option>
+                                <option value="{{ code }}">{{ code }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -217,7 +224,6 @@
                             <th class="px-4 py-3">Destination</th>
                             <th class="px-4 py-3">Nights</th>
                             <th class="px-4 py-3">Price/Night</th>
-                            <th class="px-4 py-3">Total</th>
                             <th class="px-4 py-3">Book</th>
                         </tr>
                     </thead>
@@ -229,8 +235,14 @@
                             <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
                             <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
                             <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
-                            <td class="px-4 py-3 text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</td>
-                            <td class="px-4 py-3 text-slate-300">${{ "%.0f"|format(deal.price_total) }} CAD</td>
+                            <td class="px-4 py-3">
+                                {% if deal.original_price and deal.original_price > 0 %}
+                                <span class="price-was">${{ "%.0f"|format(deal.original_price) }}</span>
+                                <span class="savings-badge {% if deal.savings_pct >= 50 %}savings-high{% elif deal.savings_pct >= 30 %}savings-mid{% else %}savings-low{% endif %}">Save {{ deal.savings_pct }}%</span>
+                                <br>
+                                {% endif %}
+                                <span class="text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</span>
+                            </td>
                             <td class="px-4 py-3">
                                 {% if deal.url %}
                                 <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">View &rarr;</a>

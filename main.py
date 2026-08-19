@@ -85,7 +85,7 @@ async def index(request: Request):
     counts = await get_deal_count_by_type()
     last = await get_last_refresh()
 
-    package_deals = await search_deals(deal_type="package")
+    package_deals = await search_deals(deal_type="package", sort_by="deal_score")
     hotel_deals = await search_deals(deal_type="hotel")
 
     return templates.TemplateResponse(request, "index.html", {
@@ -114,6 +114,7 @@ async def search(
     source: str = Query(None),
     deal_type: str = Query(None),
     nights: str = Query(None),
+    sort_by: str = Query(None),
 ):
     max_price_f = float(max_price) if max_price else None
     min_stars_i = int(min_stars) if min_stars else None
@@ -131,6 +132,7 @@ async def search(
         source=source or None,
         deal_type=deal_type or None,
         nights=nights_list,
+        sort_by=sort_by or "price",
     )
     return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
@@ -149,6 +151,7 @@ async def search(
             "source": source,
             "deal_type": deal_type,
             "nights": nights,
+            "sort_by": sort_by,
         },
     })
 

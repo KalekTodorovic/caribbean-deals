@@ -44,6 +44,8 @@ class BaseScraper(ABC):
             "nights": 0,
             "price_per_person": 0.0,
             "price_total": 0.0,
+            "original_price": 0.0,
+            "savings_pct": 0,
             "currency": "CAD",
             "all_inclusive": 0,
             "direct_flight": 0,

@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS deals (
     nights INTEGER,
     price_per_person REAL,
     price_total REAL,
+    original_price REAL DEFAULT 0,
+    savings_pct INTEGER DEFAULT 0,
     currency TEXT DEFAULT 'CAD',
     all_inclusive INTEGER DEFAULT 0,
     direct_flight INTEGER DEFAULT 0,
@@ -54,13 +56,17 @@ async def upsert_deal(deal: dict):
     await db.execute(
         """INSERT INTO deals (source, destination, deal_type, hotel_name, hotel_stars,
             departure_date, return_date, nights, price_per_person, price_total,
+            original_price, savings_pct,
             currency, all_inclusive, direct_flight, departure_airport, url, source_trip_id)
         VALUES (:source, :destination, :deal_type, :hotel_name, :hotel_stars,
             :departure_date, :return_date, :nights, :price_per_person, :price_total,
+            :original_price, :savings_pct,
             :currency, :all_inclusive, :direct_flight, :departure_airport, :url, :source_trip_id)
         ON CONFLICT(source, source_trip_id) DO UPDATE SET
             price_per_person=excluded.price_per_person,
             price_total=excluded.price_total,
+            original_price=excluded.original_price,
+            savings_pct=excluded.savings_pct,
             deal_type=excluded.deal_type,
             fetched_at=datetime('now')
         """,
@@ -80,6 +86,7 @@ async def search_deals(
     source: str = None,
     deal_type: str = None,
     nights: list[int] = None,
+    sort_by: str = "price_per_person",
 ) -> list[dict]:
     db = await get_db()
     query = "SELECT * FROM deals WHERE 1=1"
@@ -112,7 +119,14 @@ async def search_deals(
         query += f" AND nights IN ({placeholders})"
         params.extend(nights)
 
-    query += " ORDER BY price_per_person ASC"
+    order = {
+        "price": "price_per_person ASC",
+        "deal_score": "savings_pct DESC, price_per_person ASC",
+        "savings": "savings_pct DESC",
+        "stars": "hotel_stars DESC, price_per_person ASC",
+    }
+    query += f" ORDER BY {order.get(sort_by, 'price_per_person ASC')}"
+
     cursor = await db.execute(query, params)
     rows = await cursor.fetchall()
     await db.close()
