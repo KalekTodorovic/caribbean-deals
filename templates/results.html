@@ -123,7 +123,7 @@
                         <th class="px-4 py-3">Stars</th>
                         <th class="px-4 py-3">Destination</th>
                         <th class="px-4 py-3">Nights</th>
-                        <th class="px-4 py-3">Price</th>
+                        <th class="px-4 py-3 cursor-pointer select-none hover:text-sky-300" onclick="sortTable()" id="price-header">Price <span id="sort-arrow">&#9650;</span></th>
                         <th class="px-4 py-3">Book</th>
                     </tr>
                 </thead>
@@ -167,6 +167,20 @@
                 badge.classList.toggle('active', cb.checked);
             });
         });
+
+        let sortAsc = true;
+        function sortTable() {
+            const tbody = document.querySelector('table tbody');
+            const rows = [...tbody.querySelectorAll('tr')];
+            rows.sort((a, b) => {
+                const pa = parseFloat(a.cells[5].innerText.replace(/[$,CAD\s]/g, '')) || 0;
+                const pb = parseFloat(b.cells[5].innerText.replace(/[$,CAD\s]/g, '')) || 0;
+                return sortAsc ? pa - pb : pb - pa;
+            });
+            sortAsc = !sortAsc;
+            document.getElementById('sort-arrow').innerHTML = sortAsc ? '&#9650;' : '&#9660;';
+            rows.forEach(r => tbody.appendChild(r));
+        }
     </script>
 </body>
 </html>
