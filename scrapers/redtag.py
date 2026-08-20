@@ -11,9 +11,12 @@ class RedtagScraper(BaseScraper):
     booking_base = "https://secure-res.redtag.ca/vacations/search"
 
     def _build_booking_url(self, deal_data: dict) -> str:
+        hotel_name = deal_data.get("Hotel", "") or deal_data.get("HotelName", "")
+        destination = deal_data.get("Destination", "")
+        sentdest = f"{hotel_name} - {destination}" if hotel_name and destination else hotel_name or destination
         params = {
             "dest_dep": deal_data.get("DestinationID", ""),
-            "sentdest": deal_data.get("Destination", ""),
+            "sentdest": sentdest,
             "gateway_dep": deal_data.get("DepartureCode", "YUL"),
             "remember_dep": deal_data.get("DepartureCity", "Montreal"),
             "date": deal_data.get("DepartureDate", ""),
