@@ -157,3 +157,34 @@ async def get_last_refresh() -> str | None:
     row = await cursor.fetchone()
     await db.close()
     return row[0] if row else None
+
+
+async def find_outliers(min_datapoints: int = 2, threshold_pct: int = 15) -> list[dict]:
+    """Find deals where the price is significantly lower than the average for the same hotel+destination+deal_type.
+    Only considers deals with a known departure_date so the date comparison is meaningful."""
+    db = await get_db()
+    cursor = await db.execute("""
+        SELECT d.*,
+            grp.avg_price,
+            grp.datapoints,
+            ROUND((grp.avg_price - d.price_per_person) / grp.avg_price * 100) AS below_avg_pct
+        FROM deals d
+        JOIN (
+            SELECT hotel_name, destination, deal_type, nights,
+                AVG(price_per_person) AS avg_price,
+                COUNT(*) AS datapoints
+            FROM deals
+            WHERE hotel_name != '' AND price_per_person > 0 AND departure_date != ''
+            GROUP BY hotel_name, destination, deal_type, nights
+            HAVING COUNT(*) >= ?
+        ) grp ON d.hotel_name = grp.hotel_name
+            AND d.destination = grp.destination
+            AND d.deal_type = grp.deal_type
+            AND d.nights = grp.nights
+        WHERE d.departure_date != ''
+          AND (grp.avg_price - d.price_per_person) / grp.avg_price * 100 >= ?
+        ORDER BY below_avg_pct DESC
+    """, (min_datapoints, threshold_pct))
+    rows = await cursor.fetchall()
+    await db.close()
+    return [dict(r) for r in rows]

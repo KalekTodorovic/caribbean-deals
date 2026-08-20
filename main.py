@@ -15,6 +15,7 @@ from config import (
     STAR_RATINGS,
 )
 from models import (
+    find_outliers,
     get_deal_count,
     get_deal_count_by_type,
     get_last_refresh,
@@ -162,6 +163,20 @@ async def trigger_scrape():
     return RedirectResponse("/", status_code=303)
 
 
+@app.get("/outliers", response_class=HTMLResponse)
+async def outliers_page(request: Request):
+    outlier_deals = await find_outliers(min_datapoints=2, threshold_pct=15)
+    return templates.TemplateResponse(request, "outliers.html", {
+        "outliers": outlier_deals,
+        "count": len(outlier_deals),
+    })
+
+
+@app.get("/api/outliers")
+async def api_outliers(min_datapoints: int = Query(2), threshold_pct: int = Query(15)):
+    return await find_outliers(min_datapoints=min_datapoints, threshold_pct=threshold_pct)
+
+
 @app.get("/api/deals")
 async def api_deals(
     destination: str = Query(None),
@@ -194,4 +209,4 @@ async def api_stats():
 if __name__ == "__main__":
     import uvicorn
     from config import HOST, PORT
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=False)

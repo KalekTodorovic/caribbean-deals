@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Date Outliers — Caribbean Deal Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border: 1px solid #334155; }
+        .deal-row:hover { background: #1e3a5f; }
+        .source-badge { font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; }
+        .source-redtag { background: #ec4899; color: white; }
+        .stars { color: #facc15; }
+        .price-was { text-decoration: line-through; color: #64748b; font-size: 0.8rem; }
+        .outlier-badge { font-size: 0.75rem; padding: 3px 10px; border-radius: 9999px; font-weight: 700; background: #16a34a; color: white; }
+        .avg-badge { font-size: 0.75rem; padding: 3px 10px; border-radius: 9999px; background: #475569; color: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-green-400">Date Outliers</h1>
+                <p class="text-slate-400 mt-1">Deals significantly cheaper than average for the same hotel</p>
+            </div>
+            <a href="/" class="text-sky-400 hover:underline text-sm">&larr; Back to Deals</a>
+        </div>
+
+        {% if outliers %}
+        <div class="card rounded-xl overflow-hidden">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-left text-sm text-slate-400 border-b border-slate-700">
+                        <th class="px-4 py-3">Hotel</th>
+                        <th class="px-4 py-3">Dest</th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Nights</th>
+                        <th class="px-4 py-3">This Price</th>
+                        <th class="px-4 py-3">Avg Price</th>
+                        <th class="px-4 py-3">Savings</th>
+                        <th class="px-4 py-3">Book</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for deal in outliers %}
+                    <tr class="deal-row border-b border-slate-800 transition-colors">
+                        <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
+                        <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
+                        <td class="px-4 py-3 text-slate-300">{{ deal.departure_date }}</td>
+                        <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
+                        <td class="px-4 py-3">
+                            {% if deal.original_price and deal.original_price > 0 %}
+                            <span class="price-was">${{ "%.0f"|format(deal.original_price) }}</span><br>
+                            {% endif %}
+                            <span class="text-green-400 font-bold">${{ "%.0f"|format(deal.price_per_person) }} CAD</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="avg-badge">${{ "%.0f"|format(deal.avg_price) }} avg</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="outlier-badge">${{ "%.0f"|format(deal.avg_price - deal.price_per_person) }} off ({{ "%.0f"|format(deal.below_avg_pct) }}%)</span>
+                        </td>
+                        <td class="px-4 py-3">
+                            {% if deal.url %}
+                            <a href="{{ deal.url }}" target="_blank" class="text-sky-400 hover:underline text-sm">Book &rarr;</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-slate-500">
+            <p class="text-lg">No outliers found yet.</p>
+            <p class="text-sm mt-2">Run a scrape to collect multi-date data, then return here.</p>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

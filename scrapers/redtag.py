@@ -1,10 +1,98 @@
 from scrapers.base import BaseScraper
+from urllib.parse import urlencode
 import re
+import json
+import asyncio
 
 
 class RedtagScraper(BaseScraper):
     name = "redtag"
     base_url = "https://www.redtag.ca"
+    booking_base = "https://secure-res.redtag.ca/vacations/search"
+
+    def _build_booking_url(self, deal_data: dict) -> str:
+        params = {
+            "dest_dep": deal_data.get("DestinationID", ""),
+            "sentdest": deal_data.get("Destination", ""),
+            "gateway_dep": deal_data.get("DepartureCode", "YUL"),
+            "remember_dep": deal_data.get("DepartureCity", "Montreal"),
+            "date": deal_data.get("DepartureDate", ""),
+            "duration": f"{deal_data.get('Duration', '7')}days",
+            "dura_name": "7 or 8 Days",
+            "numberOfRooms": 1,
+            "numberOfAdults": 2,
+            "numberOfChildren": 0,
+            "all_inclusive": "y",
+            "date_format": "Ymd",
+            "hotel_no": deal_data.get("HotelID", ""),
+            "alias": "engine",
+            "sentalias": "api",
+            "lang": "en",
+        }
+        return f"{self.booking_base}?{urlencode(params)}"
+
+    async def _scrape_price_finder(self, page, booking_url: str, deal_template: dict) -> list[dict]:
+        """Visit a booking URL and extract date-specific prices from the price finder carousel."""
+        extra_deals = []
+        try:
+            await page.goto(booking_url, timeout=30000, wait_until="domcontentloaded")
+            await page.wait_for_timeout(12000)
+
+            text = await page.inner_text("body")
+            lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+            date_price_pairs = []
+            i = 0
+            while i < len(lines):
+                date_match = re.match(
+                    r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),(\d{4})$",
+                    lines[i],
+                )
+                if date_match and i + 1 < len(lines):
+                    price_match = re.search(r"\$([\d,]+)", lines[i + 1])
+                    if price_match:
+                        month_map = {
+                            "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+                            "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+                            "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
+                        }
+                        mon = month_map.get(date_match.group(2), "01")
+                        day = date_match.group(3).zfill(2)
+                        year = date_match.group(4)
+                        date_str = f"{year}-{mon}-{day}"
+                        price = float(price_match.group(1).replace(",", ""))
+                        if price > 100:
+                            date_price_pairs.append((date_str, price))
+                i += 1
+
+            for date_str, price in date_price_pairs:
+                source_id = f"rt_{deal_template['destination']}_{deal_template['nights']}n_{deal_template['hotel_name'][:30]}_{date_str}"
+                deal = self._make_deal(
+                    destination=deal_template["destination"],
+                    deal_type="package",
+                    hotel_name=deal_template["hotel_name"],
+                    hotel_stars=deal_template["hotel_stars"],
+                    departure_date=date_str,
+                    nights=deal_template["nights"],
+                    price_per_person=price,
+                    price_total=price * 2,
+                    all_inclusive=1,
+                    direct_flight=0,
+                    departure_airport=deal_template["departure_airport"],
+                    url=booking_url,
+                    source_trip_id=source_id,
+                )
+                extra_deals.append(deal)
+
+            if date_price_pairs:
+                self.log.info("Price finder %s: %d dates, prices $%.0f-$%.0f",
+                    deal_template["hotel_name"][:25], len(date_price_pairs),
+                    min(p for _, p in date_price_pairs), max(p for _, p in date_price_pairs))
+
+        except Exception as e:
+            self.log.debug("Price finder failed for %s: %s", deal_template.get("hotel_name", "?"), e)
+
+        return extra_deals
 
     async def search(
         self,
@@ -97,18 +185,26 @@ class RedtagScraper(BaseScraper):
                                 continue
 
                             link = ""
-                            all_links = await card.query_selector_all("a[href]")
-                            for a in all_links:
-                                href = await a.get_attribute("href") or ""
-                                if "/deals/montreal/" in href:
-                                    if not href.startswith("http"):
-                                        href = self.base_url + href
-                                    link = href
-                                    break
+                            deal_data = {}
+                            departure_date = ""
+                            btn = await card.query_selector("button[data-deal]")
+                            if btn:
+                                deal_json_str = await btn.get_attribute("data-deal")
+                                if deal_json_str:
+                                    try:
+                                        deal_data = json.loads(deal_json_str)
+                                        link = self._build_booking_url(deal_data)
+                                        raw_date = deal_data.get("DepartureDate", "")
+                                        if raw_date and len(raw_date) == 8:
+                                            departure_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+                                    except (json.JSONDecodeError, KeyError):
+                                        pass
+
                             if not link:
+                                all_links = await card.query_selector_all("a[href]")
                                 for a in all_links:
                                     href = await a.get_attribute("href") or ""
-                                    if href and "/hotel-resorts/" in href:
+                                    if "/hotel-resorts/" in href:
                                         if not href.startswith("http"):
                                             href = self.base_url + href
                                         link = href
@@ -137,13 +233,14 @@ class RedtagScraper(BaseScraper):
                             if nights_match:
                                 nights = max(int(nights_match.group(1)) - 1, 3)
 
-                            source_id = f"rt_{card_dest}_{nights}n_{hotel_name[:20]}_{i}"
+                            source_id = f"rt_{card_dest}_{nights}n_{hotel_name[:30]}_{departure_date or i}"
 
                             deal = self._make_deal(
                                 destination=card_dest,
                                 deal_type="package",
                                 hotel_name=hotel_name,
                                 hotel_stars=stars,
+                                departure_date=departure_date,
                                 nights=nights,
                                 price_per_person=sale_price,
                                 price_total=sale_price * 2,
@@ -165,7 +262,25 @@ class RedtagScraper(BaseScraper):
                     self.log.error("RedTag page %s failed: %s", page_url, e)
                     continue
 
+            unique_hotels = {}
+            for d in deals:
+                if d.get("url") and "secure-res" in d["url"] and d["hotel_name"]:
+                    key = (d["hotel_name"], d["destination"], d["nights"])
+                    if key not in unique_hotels:
+                        unique_hotels[key] = d
+            cheapest = sorted(unique_hotels.values(), key=lambda x: x["price_per_person"])[:20]
+            unique_hotels = {(d["hotel_name"], d["destination"], d["nights"]): d for d in cheapest}
+
+            self.log.info("Price finder: visiting %d unique hotel booking URLs", len(unique_hotels))
+            finder_deals = []
+            for (hotel_name, dest, nights), template in unique_hotels.items():
+                extra = await self._scrape_price_finder(page, template["url"], template)
+                finder_deals.extend(extra)
+                await asyncio.sleep(2)
+
             await browser.close()
 
-        self.log.info("RedTag: %d Montreal deals", len(deals))
-        return deals
+        all_deals = deals + finder_deals
+        self.log.info("RedTag: %d card deals + %d price-finder dates = %d total",
+            len(deals), len(finder_deals), len(all_deals))
+        return all_deals
