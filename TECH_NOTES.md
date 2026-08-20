@@ -16,8 +16,14 @@ https://secure-res.redtag.ca/vacations/search?dest_dep={DestinationID}&sentdest=
 - `DepartureDate` = "YYYYMMDD" format
 - `Duration` = 7
 - `HotelID` = hotel number
+- `Hotel` = full hotel name (e.g. "Bahia Principe Luxury Runaway Bay")
 
 **URL builder source:** `app.js` on redtag.ca contains `fe.A("https://secure-res.redtag.ca/vacations/search")` that builds these URLs.
+
+**CRITICAL: `sentdest` must use hotel name, not just destination!**
+- WRONG: `sentdest=Runaway+Bay` (just destination) — returns 0 results
+- RIGHT: `sentdest=Bahia+Principe+Luxury+Runaway+Bay+-+Runaway+Bay` (Hotel + Destination)
+- The `Hotel` field from data-deal is the correct value. Build as `{Hotel} - {Destination}`.
 
 **Booking engine price finder:** When visiting a booking URL, the page shows a carousel of 7 nearby dates with "From $X" prices. This is scraped in `_scrape_price_finder()` for multi-date comparison.
 
