@@ -32,56 +32,62 @@ class RedtagScraper(BaseScraper):
         return f"{self.booking_base}?{urlencode(params)}"
 
     async def _scrape_price_finder(self, page, booking_url: str, deal_template: dict) -> list[dict]:
-        """Visit a booking URL and extract date-specific prices from the price finder carousel."""
+        """Visit a booking URL and extract date-specific prices from the price finder carousel.
+        Also captures which date is marked 'cheapest' by RedTag."""
         extra_deals = []
         try:
             await page.goto(booking_url, timeout=30000, wait_until="domcontentloaded")
             await page.wait_for_timeout(12000)
 
-            text = await page.inner_text("body")
-            lines = [l.strip() for l in text.split("\n") if l.strip()]
+            date_price_pairs = await page.evaluate("""
+                () => {
+                    const monthMap = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',
+                                      Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+                    const days = document.querySelectorAll('.day');
+                    const results = [];
+                    for (const day of days) {
+                        const text = day.textContent || '';
+                        const dateMatch = text.match(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+(\\d+),(\\d{4})/);
+                        if (!dateMatch) continue;
+                        const priceEl = day.querySelector('.price');
+                        if (!priceEl) continue;
+                        const priceText = priceEl.textContent || '';
+                        const priceMatch = priceText.match(/\\$([\\d,]+)/);
+                        if (!priceMatch) continue;
+                        const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+                        if (price <= 100) continue;
+                        const mon = monthMap[dateMatch[2]] || '01';
+                        const dayNum = dateMatch[3].padStart(2, '0');
+                        const dateStr = dateMatch[4] + '-' + mon + '-' + dayNum;
+                        const isCheapest = day.classList.contains('cheapest');
+                        const color = getComputedStyle(priceEl).color;
+                        const rgbMatch = color.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)/);
+                        const isRed = rgbMatch && parseInt(rgbMatch[1]) > 150 && parseInt(rgbMatch[2]) < 50;
+                        results.push({date: dateStr, price, cheapest: isCheapest, red: isRed});
+                    }
+                    return results;
+                }
+            """)
 
-            date_price_pairs = []
-            i = 0
-            while i < len(lines):
-                date_match = re.match(
-                    r"^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d+),(\d{4})$",
-                    lines[i],
-                )
-                if date_match and i + 1 < len(lines):
-                    price_match = re.search(r"\$([\d,]+)", lines[i + 1])
-                    if price_match:
-                        month_map = {
-                            "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
-                            "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
-                            "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
-                        }
-                        mon = month_map.get(date_match.group(2), "01")
-                        day = date_match.group(3).zfill(2)
-                        year = date_match.group(4)
-                        date_str = f"{year}-{mon}-{day}"
-                        price = float(price_match.group(1).replace(",", ""))
-                        if price > 100:
-                            date_price_pairs.append((date_str, price))
-                i += 1
-
-            for date_str, price in date_price_pairs:
-                source_id = f"rt_{deal_template['destination']}_{deal_template['nights']}n_{deal_template['hotel_name'][:30]}_{date_str}"
+            for item in date_price_pairs:
+                source_id = f"rt_{deal_template['destination']}_{deal_template['nights']}n_{deal_template['hotel_name'][:30]}_{item['date']}"
                 deal = self._make_deal(
                     destination=deal_template["destination"],
                     deal_type="package",
                     hotel_name=deal_template["hotel_name"],
                     hotel_stars=deal_template["hotel_stars"],
-                    departure_date=date_str,
+                    departure_date=item["date"],
                     nights=deal_template["nights"],
-                    price_per_person=price,
-                    price_total=price * 2,
+                    price_per_person=item["price"],
+                    price_total=item["price"] * 2,
                     all_inclusive=1,
                     direct_flight=0,
                     departure_airport=deal_template["departure_airport"],
                     url=booking_url,
                     source_trip_id=source_id,
                 )
+                if item.get("cheapest"):
+                    deal["savings_pct"] = 1
                 extra_deals.append(deal)
 
             if date_price_pairs:
