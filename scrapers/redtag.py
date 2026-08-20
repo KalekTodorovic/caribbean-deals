@@ -201,14 +201,7 @@ class RedtagScraper(BaseScraper):
                                         pass
 
                             if not link:
-                                all_links = await card.query_selector_all("a[href]")
-                                for a in all_links:
-                                    href = await a.get_attribute("href") or ""
-                                    if "/hotel-resorts/" in href:
-                                        if not href.startswith("http"):
-                                            href = self.base_url + href
-                                        link = href
-                                        break
+                                continue
 
                             stars = 4
                             stars_match = re.search(r"(\d\.\d)\s+out\s+of\s+5", card_text)
