@@ -21,6 +21,13 @@ https://secure-res.redtag.ca/vacations/search?dest_dep={DestinationID}&sentdest=
 
 **Booking engine price finder:** When visiting a booking URL, the page shows a carousel of 7 nearby dates with "From $X" prices. This is scraped in `_scrape_price_finder()` for multi-date comparison.
 
+**RedTag price calendar CSS (CRITICAL):**
+- Each date is a `<div class="col best-price day">` (or with extra classes)
+- Price is `<span class="price">From$1,699</span>`
+- **`cheapest` class** on the day div = RedTag's own "best price" indicator. Use this to flag deals.
+- **Red color** `rgb(202, 0, 0)` on `<span class="price">` = currently selected date (not necessarily cheapest)
+- The `cheapest` class is the reliable indicator, not the color.
+
 **IMPORTANT:** The booking engine (`secure-res.redtag.ca`) always returns Montreal prices when `gateway_dep=YUL`. It does NOT work with hotel-resort category links from `redtag.ca/deals/`. Only the `secure-res.redtag.ca` URLs produce Montreal-specific pricing.
 
 ## RedTag Scraping Flow
