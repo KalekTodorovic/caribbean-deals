@@ -226,6 +226,9 @@ class RedtagScraper(BaseScraper):
                             if nights_match:
                                 nights = max(int(nights_match.group(1)) - 1, 3)
 
+                            if nights < 4:
+                                continue
+
                             source_id = f"rt_{card_dest}_{nights}n_{hotel_name[:30]}_{departure_date or i}"
 
                             deal = self._make_deal(
