@@ -134,7 +134,7 @@
                         <tr class="deal-row border-b border-slate-800 transition-colors">
                             <td class="px-4 py-3"><span class="source-badge source-{{ deal.source }}">{{ deal.source }}</span></td>
                             <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
-                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
+                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars|int }}</td>
                             <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
                             <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
                             <td class="px-4 py-3">
@@ -233,7 +233,7 @@
                         <tr class="deal-row border-b border-slate-800 transition-colors">
                             <td class="px-4 py-3"><span class="source-badge source-{{ deal.source }}">{{ deal.source }}</span></td>
                             <td class="px-4 py-3 font-medium">{{ deal.hotel_name }}</td>
-                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
+                            <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars|int }}</td>
                             <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
                             <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
                             <td class="px-4 py-3">
