@@ -140,6 +140,7 @@ async def search(
         sort_by=sort_by or "price",
     )
     db_operators = await get_operators()
+    all_operators = sorted(set(list(TOUR_OPERATORS.values()) + db_operators))
     return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
         "airports": DEPARTURE_AIRPORTS,
@@ -147,7 +148,7 @@ async def search(
         "star_ratings": STAR_RATINGS,
         "deal_type": deal_type,
         "package_nights_options": PACKAGE_NIGHTS_OPTIONS,
-        "db_operators": db_operators,
+        "db_operators": all_operators,
         "tour_operators": TOUR_OPERATORS,
         "filters": {
             "destination": destination,
