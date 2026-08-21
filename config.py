@@ -37,3 +37,16 @@ DESTINATIONS = {
 }
 
 STAR_RATINGS = [3, 4, 5]
+
+TOUR_OPERATORS = {
+    "VAC": "Air Canada Vacations",
+    "CAH": "Caribe Sol",
+    "CLM": "Club Med",
+    "HOL": "Hola Sun",
+    "SQV": "Sunquest",
+    "SWG": "Sunwing Vacations",
+    "TBA": "TravelBrands",
+    "VAT": "Transat",
+    "WJS": "WestJet Vacations",
+    "VWQ": "WestJet Vacations Quebec",
+}

@@ -13,12 +13,14 @@ from config import (
     DESTINATIONS,
     REFRESH_INTERVAL_HOURS,
     STAR_RATINGS,
+    TOUR_OPERATORS,
 )
 from models import (
     find_outliers,
     get_deal_count,
     get_deal_count_by_type,
     get_last_refresh,
+    get_operators,
     init_db,
     search_deals,
     upsert_deal,
@@ -116,6 +118,7 @@ async def search(
     deal_type: str = Query(None),
     nights: str = Query(None),
     sort_by: str = Query(None),
+    operator: str = Query(None),
 ):
     max_price_f = float(max_price) if max_price else None
     min_stars_i = int(min_stars) if min_stars else None
@@ -133,8 +136,10 @@ async def search(
         source=source or None,
         deal_type=deal_type or None,
         nights=nights_list,
+        operator=operator or None,
         sort_by=sort_by or "price",
     )
+    db_operators = await get_operators()
     return templates.TemplateResponse(request, "results.html", {
         "deals": deals,
         "airports": DEPARTURE_AIRPORTS,
@@ -142,6 +147,8 @@ async def search(
         "star_ratings": STAR_RATINGS,
         "deal_type": deal_type,
         "package_nights_options": PACKAGE_NIGHTS_OPTIONS,
+        "db_operators": db_operators,
+        "tour_operators": TOUR_OPERATORS,
         "filters": {
             "destination": destination,
             "departure_airport": departure_airport,
@@ -153,6 +160,7 @@ async def search(
             "deal_type": deal_type,
             "nights": nights,
             "sort_by": sort_by,
+            "operator": operator,
         },
     })
 
@@ -185,6 +193,7 @@ async def api_deals(
     all_inclusive: bool = Query(None),
     deal_type: str = Query(None),
     nights: str = Query(None),
+    operator: str = Query(None),
 ):
     nights_list = [int(n) for n in nights.split(",") if n.strip()] if nights else None
     return await search_deals(
@@ -194,6 +203,7 @@ async def api_deals(
         all_inclusive=all_inclusive,
         deal_type=deal_type,
         nights=nights_list,
+        operator=operator,
     )
 
 

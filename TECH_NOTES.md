@@ -66,6 +66,15 @@ Works with Playwright. Scrapes `/search` page.
 - `savings_pct`: Save % from RedTag cards.
 - `source_trip_id`: Format `rt_{dest}_{nights}n_{hotel}__{date}` for RedTag. Includes date so same hotel on different dates gets unique rows.
 - `url`: Must be `secure-res.redtag.ca` booking URL for RedTag deals. Never use `/deals/montreal/` links.
+- `operator`: Tour operator name (e.g. "Transat", "Air Canada Vacations"). Populated from card text + booking engine page text matching.
+
+## RedTag Tour Operators
+
+Known operators (from booking engine filter sidebar):
+- Air Canada Vacations, Caribe Sol, Club Med, Hola Sun, Sunquest
+- Sunwing Vacations, TravelBrands, Transat, WestJet Vacations, WestJet Vacations Quebec
+
+The `/engine/vacations` API response contains `filter.tour_operator` mapping codes (VAC, CAH, etc.) to display names. Operator is extracted by matching these names against page body text during price finder.
 
 ## Environment
 

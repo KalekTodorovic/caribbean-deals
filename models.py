@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS deals (
     url TEXT,
     fetched_at TEXT DEFAULT (datetime('now')),
     source_trip_id TEXT,
+    operator TEXT DEFAULT '',
     UNIQUE(source, source_trip_id)
 );
 """
@@ -47,6 +48,10 @@ async def init_db():
     db = await get_db()
     await db.execute(CREATE_TABLE)
     await db.executescript(CREATE_INDEXES)
+    try:
+        await db.execute("ALTER TABLE deals ADD COLUMN operator TEXT DEFAULT ''")
+    except Exception:
+        pass
     await db.commit()
     await db.close()
 
@@ -57,17 +62,18 @@ async def upsert_deal(deal: dict):
         """INSERT INTO deals (source, destination, deal_type, hotel_name, hotel_stars,
             departure_date, return_date, nights, price_per_person, price_total,
             original_price, savings_pct,
-            currency, all_inclusive, direct_flight, departure_airport, url, source_trip_id)
+            currency, all_inclusive, direct_flight, departure_airport, url, source_trip_id, operator)
         VALUES (:source, :destination, :deal_type, :hotel_name, :hotel_stars,
             :departure_date, :return_date, :nights, :price_per_person, :price_total,
             :original_price, :savings_pct,
-            :currency, :all_inclusive, :direct_flight, :departure_airport, :url, :source_trip_id)
+            :currency, :all_inclusive, :direct_flight, :departure_airport, :url, :source_trip_id, :operator)
         ON CONFLICT(source, source_trip_id) DO UPDATE SET
             price_per_person=excluded.price_per_person,
             price_total=excluded.price_total,
             original_price=excluded.original_price,
             savings_pct=excluded.savings_pct,
             deal_type=excluded.deal_type,
+            operator=excluded.operator,
             fetched_at=datetime('now')
         """,
         deal,
@@ -86,6 +92,7 @@ async def search_deals(
     source: str = None,
     deal_type: str = None,
     nights: list[int] = None,
+    operator: str = None,
     sort_by: str = "price_per_person",
 ) -> list[dict]:
     db = await get_db()
@@ -118,6 +125,9 @@ async def search_deals(
         placeholders = ",".join("?" for _ in nights)
         query += f" AND nights IN ({placeholders})"
         params.extend(nights)
+    if operator:
+        query += " AND operator = ?"
+        params.append(operator)
 
     order = {
         "price": "price_per_person ASC",
@@ -157,6 +167,16 @@ async def get_last_refresh() -> str | None:
     row = await cursor.fetchone()
     await db.close()
     return row[0] if row else None
+
+
+async def get_operators() -> list[str]:
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT DISTINCT operator FROM deals WHERE operator != '' ORDER BY operator"
+    )
+    rows = await cursor.fetchall()
+    await db.close()
+    return [row["operator"] for row in rows]
 
 
 async def find_outliers(min_datapoints: int = 2, threshold_pct: int = 15) -> list[dict]:

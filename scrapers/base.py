@@ -52,6 +52,7 @@ class BaseScraper(ABC):
             "departure_airport": "YUL",
             "url": "",
             "source_trip_id": "",
+            "operator": "",
         }
         defaults.update(kwargs)
         return defaults

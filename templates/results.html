@@ -45,7 +45,7 @@
 
         <form action="/search" method="get" class="card rounded-xl p-4 mb-6">
             <input type="hidden" name="deal_type" value="{{ deal_type or '' }}">
-            <div class="grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+            <div class="grid grid-cols-2 md:grid-cols-8 gap-3 items-end">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Destination</label>
                     <select name="destination" class="input w-full rounded-lg px-3 py-1.5 text-sm">
@@ -74,6 +74,15 @@
                         <option value="">Any</option>
                         {% for s in star_ratings %}
                         <option value="{{ s }}" {% if filters.min_stars == s %}selected{% endif %}>{{ s }}+</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Operator</label>
+                    <select name="operator" class="input w-full rounded-lg px-3 py-1.5 text-sm">
+                        <option value="">All</option>
+                        {% for op in db_operators %}
+                        <option value="{{ op }}" {% if filters.operator == op %}selected{% endif %}>{{ op }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -123,6 +132,7 @@
                         <th class="px-4 py-3">Stars</th>
                         <th class="px-4 py-3">Destination</th>
                         <th class="px-4 py-3">Nights</th>
+                        <th class="px-4 py-3">Operator</th>
                         <th class="px-4 py-3 cursor-pointer select-none hover:text-sky-300" onclick="sortTable()" id="price-header">Price <span id="sort-arrow">&#9650;</span></th>
                         <th class="px-4 py-3">Book</th>
                     </tr>
@@ -135,6 +145,7 @@
                         <td class="px-4 py-3 stars">{{ '★' * deal.hotel_stars }}</td>
                         <td class="px-4 py-3 text-slate-400">{{ deal.destination }}</td>
                         <td class="px-4 py-3 text-slate-300">{{ deal.nights }}n</td>
+                        <td class="px-4 py-3 text-slate-400 text-xs">{{ deal.operator }}</td>
                         <td class="px-4 py-3">
                             {% if deal.original_price and deal.original_price > 0 %}
                             <span class="price-was">${{ "%.0f"|format(deal.original_price) }}</span>
@@ -173,8 +184,8 @@
             const tbody = document.querySelector('table tbody');
             const rows = [...tbody.querySelectorAll('tr')];
             rows.sort((a, b) => {
-                const pa = parseFloat(a.cells[5].innerText.replace(/[$,CAD\s]/g, '')) || 0;
-                const pb = parseFloat(b.cells[5].innerText.replace(/[$,CAD\s]/g, '')) || 0;
+                const pa = parseFloat(a.cells[6].innerText.replace(/[$,CAD\s]/g, '')) || 0;
+                const pb = parseFloat(b.cells[6].innerText.replace(/[$,CAD\s]/g, '')) || 0;
                 return sortAsc ? pa - pb : pb - pa;
             });
             sortAsc = !sortAsc;

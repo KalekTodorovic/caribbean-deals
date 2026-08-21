@@ -5,6 +5,22 @@ import json
 import asyncio
 
 
+KNOWN_OPERATORS = [
+    "Air Canada Vacations",
+    "Caribe Sol",
+    "Club Med",
+    "Hola Sun",
+    "Hola Sun Holidays",
+    "Sunquest",
+    "Sunwing Vacations",
+    "TravelBrands",
+    "Transat",
+    "Transat Holidays",
+    "WestJet Vacations",
+    "WestJet Vacations Quebec",
+]
+
+
 class RedtagScraper(BaseScraper):
     name = "redtag"
     base_url = "https://www.redtag.ca"
@@ -34,13 +50,48 @@ class RedtagScraper(BaseScraper):
         }
         return f"{self.booking_base}?{urlencode(params)}"
 
+    @staticmethod
+    def _extract_operator(text: str) -> str:
+        for op in KNOWN_OPERATORS:
+            if op.lower() in text.lower():
+                return op
+        return ""
+
     async def _scrape_price_finder(self, page, booking_url: str, deal_template: dict) -> list[dict]:
         """Visit a booking URL and extract date-specific prices from the price finder carousel.
-        Also captures which date is marked 'cheapest' by RedTag."""
+        Also captures which date is marked 'cheapest' by RedTag and the tour operator from results."""
         extra_deals = []
+        operator = deal_template.get("operator", "")
         try:
+            api_data = {}
+            async def _capture_api(response):
+                if "/engine/vacations" in response.url:
+                    try:
+                        api_data["resp"] = await response.json()
+                    except Exception:
+                        pass
+            page.on("response", _capture_api)
+
             await page.goto(booking_url, timeout=30000, wait_until="domcontentloaded")
             await page.wait_for_timeout(12000)
+
+            if not operator and api_data.get("resp"):
+                resp = api_data["resp"]
+                if isinstance(resp, dict):
+                    op_map = resp.get("filter", {}).get("tour_operator", {})
+                    if op_map:
+                        operator_list = list(op_map.values())
+                        body_text = await page.inner_text("body")
+                        for op_name in operator_list:
+                            if op_name.lower() in body_text.lower():
+                                operator = op_name
+                                break
+                        if not operator and len(operator_list) == 1:
+                            operator = operator_list[0]
+
+            if not operator:
+                body_text = await page.inner_text("body")
+                operator = self._extract_operator(body_text)
 
             date_price_pairs = await page.evaluate("""
                 () => {
@@ -88,15 +139,17 @@ class RedtagScraper(BaseScraper):
                     departure_airport=deal_template["departure_airport"],
                     url=booking_url,
                     source_trip_id=source_id,
+                    operator=operator,
                 )
                 if item.get("cheapest"):
                     deal["savings_pct"] = 1
                 extra_deals.append(deal)
 
             if date_price_pairs:
-                self.log.info("Price finder %s: %d dates, prices $%.0f-$%.0f",
+                self.log.info("Price finder %s: %d dates, prices $%.0f-$%.0f, operator=%s",
                     deal_template["hotel_name"][:25], len(date_price_pairs),
-                    min(p for _, p in date_price_pairs), max(p for _, p in date_price_pairs))
+                    min(p for _, p in date_price_pairs), max(p for _, p in date_price_pairs),
+                    operator or "?")
 
         except Exception as e:
             self.log.debug("Price finder failed for %s: %s", deal_template.get("hotel_name", "?"), e)
@@ -240,6 +293,8 @@ class RedtagScraper(BaseScraper):
 
                             source_id = f"rt_{card_dest}_{nights}n_{hotel_name[:30]}_{departure_date or i}"
 
+                            card_operator = self._extract_operator(card_text)
+
                             deal = self._make_deal(
                                 destination=card_dest,
                                 deal_type="package",
@@ -254,6 +309,7 @@ class RedtagScraper(BaseScraper):
                                 departure_airport=departure_airport,
                                 url=link,
                                 source_trip_id=source_id,
+                                operator=card_operator,
                             )
                             deal["original_price"] = original_price
                             deal["savings_pct"] = savings_pct
