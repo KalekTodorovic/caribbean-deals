@@ -36,7 +36,7 @@ DESTINATIONS = {
     "CO": "Colombia",
 }
 
-STAR_RATINGS = [3, 4, 5]
+STAR_RATINGS = [3.5, 4, 4.5, 5]
 
 TOUR_OPERATORS = {
     "VAC": "Air Canada Vacations",

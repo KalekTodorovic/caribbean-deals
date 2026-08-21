@@ -71,9 +71,9 @@
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Stars</label>
                     <select name="min_stars" class="input w-full rounded-lg px-3 py-1.5 text-sm">
-                        <option value="">Any</option>
+                        <option value="0">Any</option>
                         {% for s in star_ratings %}
-                        <option value="{{ s }}" {% if filters.min_stars == s %}selected{% endif %}>{{ s }}+</option>
+                        <option value="{{ s }}" {% if (not filters.min_stars and s == 4.5) or (filters.min_stars and filters.min_stars|string == s|string) %}selected{% endif %}>{{ s }}+</option>
                         {% endfor %}
                     </select>
                 </div>

@@ -38,7 +38,7 @@ class BaseScraper(ABC):
             "destination": "",
             "deal_type": "hotel",
             "hotel_name": "",
-            "hotel_stars": 0,
+            "hotel_stars": 0.0,
             "departure_date": "",
             "return_date": "",
             "nights": 0,

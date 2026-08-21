@@ -265,10 +265,10 @@ class RedtagScraper(BaseScraper):
                             if not link:
                                 continue
 
-                            stars = 4
+                            stars = 4.0
                             stars_match = re.search(r"(\d\.\d)\s+out\s+of\s+5", card_text)
                             if stars_match:
-                                stars = int(float(stars_match.group(1)))
+                                stars = float(stars_match.group(1))
 
                             card_dest = "CARIBBEAN"
                             dest_guess = {

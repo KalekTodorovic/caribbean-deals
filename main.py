@@ -121,14 +121,19 @@ async def search(
     operator: str = Query(None),
 ):
     max_price_f = float(max_price) if max_price else None
-    min_stars_i = int(min_stars) if min_stars else None
+    if min_stars is None:
+        min_stars_f = 4.5
+    elif min_stars == "0":
+        min_stars_f = None
+    else:
+        min_stars_f = float(min_stars)
     ai = all_inclusive == "true" if all_inclusive else None
     direct = direct_only == "true" if direct_only else None
     nights_list = [int(n) for n in nights.split(",") if n.strip()] if nights else None
 
     deals = await search_deals(
         destination=destination or None,
-        min_stars=min_stars_i,
+        min_stars=min_stars_f,
         max_price=max_price_f,
         all_inclusive=ai,
         direct_only=direct,

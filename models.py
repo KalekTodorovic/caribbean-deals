@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS deals (
     destination TEXT NOT NULL,
     deal_type TEXT DEFAULT 'hotel',
     hotel_name TEXT,
-    hotel_stars INTEGER,
+    hotel_stars REAL,
     departure_date TEXT,
     return_date TEXT,
     nights INTEGER,
