@@ -45,22 +45,13 @@
 
         <form action="/search" method="get" class="card rounded-xl p-4 mb-6">
             <input type="hidden" name="deal_type" value="{{ deal_type or '' }}">
-            <div class="grid grid-cols-2 md:grid-cols-8 gap-3 items-end">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 items-end">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Destination</label>
                     <select name="destination" class="input w-full rounded-lg px-3 py-1.5 text-sm">
                         <option value="">All</option>
                         {% for code, name in destinations.items() %}
                         <option value="{{ code }}" {% if filters.destination == code %}selected{% endif %}>{{ name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Airport</label>
-                    <select name="departure_airport" class="input w-full rounded-lg px-3 py-1.5 text-sm">
-                        <option value="">All</option>
-                        {% for code, name in airports.items() %}
-                        <option value="{{ code }}" {% if filters.departure_airport == code %}selected{% endif %}>{{ code }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -89,36 +80,16 @@
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Sort By</label>
                     <select name="sort_by" class="input w-full rounded-lg px-3 py-1.5 text-sm">
-                        <option value="deal_score" {% if filters.sort_by == "deal_score" %}selected{% endif %}>Best Deals</option>
                         <option value="price" {% if filters.sort_by == "price" %}selected{% endif %}>Lowest Price</option>
+                        <option value="deal_score" {% if filters.sort_by == "deal_score" %}selected{% endif %}>Best Deals</option>
                         <option value="savings" {% if filters.sort_by == "savings" %}selected{% endif %}>Most Savings</option>
                         <option value="stars" {% if filters.sort_by == "stars" %}selected{% endif %}>Best Stars</option>
                     </select>
                 </div>
-                {% if deal_type == "package" %}
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Nights</label>
-                    <div class="flex gap-1">
-                        {% for n in package_nights_options %}
-                        <label class="nights-badge {% if filters.nights and n|string in filters.nights %}active{% endif %}">
-                            <input type="checkbox" name="nights" value="{{ n }}" class="hidden" {% if filters.nights and n|string in filters.nights %}checked{% endif %}> {{ n }}
-                        </label>
-                        {% endfor %}
-                    </div>
-                </div>
-                {% else %}
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Source</label>
-                    <select name="source" class="input w-full rounded-lg px-3 py-1.5 text-sm">
-                        <option value="">All</option>
-                        <option value="booking" {% if filters.source == "booking" %}selected{% endif %}>Booking.com</option>
-                        <option value="expedia" {% if filters.source == "expedia" %}selected{% endif %}>Expedia</option>
-                    </select>
-                </div>
-                {% endif %}
-                <div>
-                    <button type="submit" class="btn-primary text-white font-semibold px-4 py-1.5 rounded-lg text-sm w-full">Filter</button>
-                </div>
+            </div>
+            <div class="mt-3 flex items-center gap-3">
+                <button type="submit" class="btn-primary text-white font-semibold px-4 py-1.5 rounded-lg text-sm">Filter</button>
+                <span class="text-xs text-slate-500">{{ deals|length }} results</span>
             </div>
         </form>
 

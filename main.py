@@ -51,7 +51,7 @@ async def run_all_scrapers():
                     await upsert_deal(deal)
                 log.info("%s (package): saved %d deals", scraper.name, len(deals))
             except Exception as e:
-                log.error("Scraper %s failed: %s", scraper.name, e)
+                log.error("Scraper %s failed: %s", scraper.name, e, exc_info=True)
 
         for scraper in HOTEL_SCRAPERS:
             try:
@@ -60,7 +60,7 @@ async def run_all_scrapers():
                     await upsert_deal(deal)
                 log.info("%s (hotel): saved %d deals", scraper.name, len(deals))
             except Exception as e:
-                log.error("Scraper %s failed: %s", scraper.name, e)
+                log.error("Scraper %s failed: %s", scraper.name, e, exc_info=True)
 
         count = await get_deal_count()
         log.info("Scrape complete. Total deals in DB: %d", count)
@@ -73,7 +73,14 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(run_all_scrapers, "interval", hours=REFRESH_INTERVAL_HOURS, id="refresh")
     scheduler.start()
     log.info("Scheduler started (refresh every %dh)", REFRESH_INTERVAL_HOURS)
-    asyncio.create_task(run_all_scrapers())
+
+    async def _safe_startup_scrape():
+        try:
+            await run_all_scrapers()
+        except Exception as e:
+            log.error("Startup scrape crashed: %s", e, exc_info=True)
+    asyncio.create_task(_safe_startup_scrape())
+
     yield
     scheduler.shutdown()
 
